@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seoul Kitchen Traction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a quiet left rail of sections, one dense working surface on the right. Numbers carry the color; chrome stays ink and paper. */
+:root{
+  --paper:#f4f5f8; --card:#ffffff; --ink:#191c2b; --muted:#646b82; --line:#dfe2ea;
+  --accent:#2f3f9e; --accent-ink:#ffffff; --accent-soft:#e7eafa;
+  --good:#17754c; --good-bg:#e3f4ea; --bad:#b8322a; --bad-bg:#fbe7e4; --warn:#93600a; --warn-bg:#fcf0d3;
+  --display:"Bricolage Grotesque","Avenir Next","Segoe UI",sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#12141d; --card:#1b1e2b; --ink:#eceef6; --muted:#9aa1b8; --line:#2f3345;
+    --accent:#93a2ff; --accent-ink:#12141d; --accent-soft:#262b48;
+    --good:#6fd6a2; --good-bg:#173527; --bad:#ff958c; --bad-bg:#43201d; --warn:#f0c264; --warn-bg:#3d3115;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#12141d; --card:#1b1e2b; --ink:#eceef6; --muted:#9aa1b8; --line:#2f3345;
+  --accent:#93a2ff; --accent-ink:#12141d; --accent-soft:#262b48;
+  --good:#6fd6a2; --good-bg:#173527; --bad:#ff958c; --bad-bg:#43201d; --warn:#f0c264; --warn-bg:#3d3115;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--paper);color:var(--ink);font:400 15px/1.45 var(--body);display:flex}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-size:26px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:17px;font-weight:700}
+h3{font-size:13px;font-weight:600;font-family:var(--body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+
+#rail{width:212px;flex:none;border-right:1px solid var(--line);background:var(--card);padding:18px 12px;display:flex;flex-direction:column;gap:18px;overflow-y:auto}
+.brand{padding:0 8px;display:flex;flex-direction:column;gap:2px}
+.brand b{font:700 19px/1.1 var(--display)}
+.brand span{font-size:12px;color:var(--muted)}
+#nav{display:flex;flex-direction:column;gap:2px}
+#nav button{border:0;background:none;text-align:left;padding:8px 10px;border-radius:7px;font-weight:500;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+#nav button:hover{background:var(--paper);color:var(--ink)}
+#nav button[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+#nav .ct{font-size:12px;font-variant-numeric:tabular-nums}
+.rail-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px;padding:0 4px}
+#status{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+#status i{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+#status.ok i{background:var(--good)} #status.warn i{background:var(--warn)}
+
+#main{flex:1;min-width:0;overflow-y:auto;padding:24px 28px 60px}
+#shell{display:flex;flex-direction:column;gap:14px;margin-bottom:16px}
+.head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.head .sp,.sp{flex:1}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:7px;padding:7px 12px;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:none}
+.btn.danger{color:var(--bad)}
+.btn.sm{padding:3px 9px;font-size:13px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:var(--card)}
+.seg button{border:0;background:none;padding:7px 12px;font-weight:500;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+select,input[type=text],input[type=date],input[type=number],textarea{border:1px solid var(--line);background:var(--card);border-radius:7px;padding:7px 10px;min-width:0}
+textarea{width:100%;resize:vertical;min-height:70px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px}
+.pad{padding:16px}
+.stack{display:flex;flex-direction:column;gap:16px}
+.muted{color:var(--muted)}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+.notice{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:10px 14px;font-size:14px}
+
+.pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600;white-space:nowrap;border:0}
+.pill.good{background:var(--good-bg);color:var(--good)} .pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)} .pill.plain{background:var(--paper);color:var(--muted)}
+.av{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:10.5px;font-weight:600;color:#fff;flex:none}
+.who{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);white-space:nowrap}
+
+/* scorecard */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+table.sc{border-collapse:separate;border-spacing:0;width:100%;font-variant-numeric:tabular-nums}
+.sc th,.sc td{border-bottom:1px solid var(--line);padding:0;white-space:nowrap;height:38px}
+.sc thead th{font-size:12px;font-weight:600;color:var(--muted);padding:8px 10px;text-align:right;background:var(--card);position:sticky;top:0}
+.sc thead th.cur{color:var(--accent)}
+.sc thead th small{display:block;font-weight:400}
+.sc .t{position:sticky;left:0;background:var(--card);text-align:left;z-index:1;border-right:1px solid var(--line);min-width:200px;max-width:260px}
+.sc thead .t{z-index:2}
+.sc .t button{border:0;background:none;width:100%;text-align:left;padding:8px 12px;display:flex;align-items:center;gap:8px;font-weight:500;overflow:hidden}
+.sc .t button span{overflow:hidden;text-overflow:ellipsis}
+.sc .g{padding:0 12px;text-align:right;color:var(--muted);font-size:13px}
+.sc .tr{padding:0 8px}
+.sc tr.grp td{background:var(--paper);font:600 12px var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 12px;height:auto;position:sticky;left:0}
+.sc td.v{text-align:right;min-width:92px}
+.sc td.v>button,.sc td.v>span{display:block;width:100%;height:37px;line-height:37px;padding:0 10px;border:0;background:none;text-align:right}
+.sc td.v>button:hover{box-shadow:inset 0 0 0 1px var(--muted)}
+.sc td.good{background:var(--good-bg);color:var(--good)} .sc td.bad{background:var(--bad-bg);color:var(--bad)}
+.sc td.v.cur:not(.good):not(.bad){background:var(--accent-soft)}
+.cell-in{width:100%;height:37px;border:2px solid var(--accent)!important;border-radius:0!important;text-align:right;padding:0 8px!important}
+.sc tr.arch .t span{text-decoration:line-through;color:var(--muted)}
+
+/* lists */
+.list{display:flex;flex-direction:column}
+.row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line);min-height:44px}
+.row:last-child{border-bottom:0}
+.row .ttl{flex:1;min-width:0;border:0;background:none;text-align:left;padding:2px 0;font-weight:500;overflow-wrap:anywhere}
+.row .ttl:hover{color:var(--accent)}
+.row.done .ttl{text-decoration:line-through;color:var(--muted);font-weight:400}
+.chk{width:20px;height:20px;border-radius:5px;border:1.5px solid var(--muted);background:none;flex:none;padding:0;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1}
+.chk.on{background:var(--good);border-color:var(--good);color:#fff}
+.star{border:0;background:none;padding:0 2px;font-size:17px;color:var(--line);line-height:1}
+.star.on{color:var(--warn)}
+.sect-h{display:flex;align-items:center;gap:8px;padding:12px 14px 6px}
+.quick{display:flex;gap:8px;flex-wrap:wrap}
+.quick input[type=text]{flex:1;min-width:180px}
+
+/* overview */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.tile{padding:14px 16px;display:flex;flex-direction:column;gap:2px;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:10px}
+.tile:hover{border-color:var(--muted)}
+.tile b{font:700 28px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.tile span{font-size:13px;color:var(--muted)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;align-items:start}
+
+/* vision */
+.vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;align-items:start}
+.vcard{padding:16px;display:flex;flex-direction:column;gap:12px}
+.vf label,.fld label{display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.vf p{margin:0;max-width:65ch;white-space:pre-wrap}
+.vf ol,.vf ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px;max-width:65ch}
+
+/* chart */
+.seatnode{display:flex;flex-direction:column;gap:8px}
+.kids{margin-left:14px;padding-left:18px;border-left:2px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.seat{padding:10px 12px;display:flex;gap:10px;align-items:flex-start;max-width:520px}
+.seat .body{flex:1;min-width:0}
+.seat ul{margin:4px 0 0;padding-left:18px;font-size:13px;color:var(--muted)}
+.seat .tg{border:1px solid var(--line);background:var(--paper);border-radius:5px;width:24px;height:24px;padding:0;flex:none;font-size:12px}
+
+/* meeting */
+.mt{display:grid;grid-template-columns:230px 1fr;gap:16px;align-items:start}
+.steps{display:flex;flex-direction:column}
+.steps button{border:0;background:none;text-align:left;padding:10px 14px;display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);color:var(--muted);font-weight:500}
+.steps button:last-child{border-bottom:0}
+.steps button.on{background:var(--accent-soft);color:var(--accent)}
+.clock{font:700 30px/1 var(--display);font-variant-numeric:tabular-nums}
+.clock.over{color:var(--bad)}
+.rate{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.rate label{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px}
+.rate input{width:64px}
+
+/* dialog */
+#overlay{position:fixed;inset:0;background:rgba(10,12,22,.5);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow-y:auto;z-index:20}
+#overlay[hidden]{display:none}
+.dlg{background:var(--card);border-radius:12px;padding:20px;width:100%;max-width:480px;display:flex;flex-direction:column;gap:12px;border:1px solid var(--line)}
+.fld input,.fld select,.fld textarea{width:100%}
+.fld.chkf{display:flex;align-items:center;gap:8px}
+.fld.chkf label{margin:0;text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink);font-weight:400}
+.fld.chkf input{width:auto}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dlg-actions{display:flex;gap:8px;align-items:center;margin-top:6px}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:9px 16px;border-radius:8px;font-size:14px;z-index:30;max-width:90vw}
+#toast[hidden]{display:none}
+
+@media (max-width:760px){
+  body{flex-direction:column}
+  #rail{width:auto;flex-direction:row;align-items:center;padding:8px 12px;gap:10px;border-right:0;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden}
+  .brand span,.rail-foot{display:none}
+  #nav{flex-direction:row}
+  #nav button{white-space:nowrap}
+  #main{padding:16px 16px 60px}
+  .mt{grid-template-columns:1fr}
+  .steps{flex-direction:row;overflow-x:auto}
+  .steps button{border-bottom:0;white-space:nowrap}
+  .sc .t{min-width:150px;max-width:170px}
+}
+@media (prefers-reduced-motion:no-preference){.btn,.tile,#nav button{transition:background .12s,border-color .12s}}
+</style>
+</head>
+<body>
+<aside id="rail">
+  <div class="brand"><b>Seoul Kitchen</b><span>Leadership team</span></div>
+  <nav id="nav" aria-label="Sections"></nav>
+  <div class="rail-foot">
+    <button class="btn sm" data-act="team" id="team-btn">Team</button>
+    <button class="btn sm ghost" data-act="signout" id="signout-btn" hidden>Sign out</button>
+    <div id="status"><i></i><span>Loading</span></div>
+  </div>
+</aside>
+<main id="main">
+  <div id="shell"></div>
+  <div id="body"></div>
+</main>
+<div id="overlay" hidden></div>
+<div id="toast" hidden role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOW=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const fromIso=s=>{const [y,m,d]=String(s).split('-').map(Number);return new Date(y,(m||1)-1,d||1)};
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const mondayOf=d=>{const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());return addDays(x,-((x.getDay()+6)%7))};
+const todayIso=()=>iso(new Date());
+const niceDate=s=>{if(!s)return'';const d=fromIso(s);return MON[d.getMonth()]+' '+d.getDate()+(d.getFullYear()!==new Date().getFullYear()?', '+d.getFullYear():'')};
+const parseNum=t=>{const n=parseFloat(String(t).replace(/[$,%\s]/g,''));return n};
+const ls={get(k,d){try{const v=localStorage.getItem('skt.'+k);return v===null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('skt.'+k,JSON.stringify(v))}catch(e){}}};
+
+const COLS=['measurables','rocks','todos','issues','headlines','seats','meetings'];
+const S={people:[],vto:{},meeting:null,loaded:new Set()};
+COLS.forEach(c=>S[c]=[]);
+const DEFAULT_AGENDA={day:1,time:'12:00',sections:[
+  {key:'segue',name:'Segue',min:5},{key:'scorecard',name:'Scorecard',min:5},{key:'rocks',name:'Rock review',min:5},
+  {key:'headlines',name:'Headlines',min:5},{key:'todos',name:'To-do list',min:5},{key:'issues',name:'Issues: identify, discuss, solve',min:60},{key:'conclude',name:'Conclude',min:5}]};
+const VIEWS=[['overview','Overview'],['scorecard','Scorecard'],['rocks','Rocks'],['todos','To-dos'],['issues','Issues'],['headlines','Headlines'],['meeting','Weekly meeting'],['vision','Vision'],['chart','Accountability chart']];
+const GROUP_NAMES={SK:'Both stores',SKL:'Leominster',SKW:'Westford'};
+let db=null,canWrite=true,view='overview',ready=false,shellSig='';
+const F={owner:ls.get('owner',''),freq:'weekly',group:ls.get('group',''),offset:{weekly:0,monthly:0,quarterly:0},showArch:false,showDone:false,term:'short',collapsed:new Set(ls.get('collapsed',[])),vtoEdit:false};
+const M={active:false,idx:0,start:0,secStart:0,spent:{},ratings:{},notes:''};
+
+/* ---------- data ---------- */
+/* Connection: paste your Supabase project URL and anon (public) key here. */
+const CFG={url:'https://fjgjpiwgarpbdtghmqms.supabase.co',key:'sb_publishable_YIkdSptqiNkYS_ElDyCA2A_ApKnJwOw'};
+let sb=null,loginOpen=false;
+function setStatus(cls,text){const el=$('#status');el.className=cls;el.lastElementChild.textContent=text}
+function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,3800)}
+function write(p){
+  if(!p||!p.catch)return p;
+  return p.catch(()=>toast('That change was not saved. Check your connection and try again.'));
+}
+const deepMerge=(a,b)=>{const o=Object.assign({},a);for(const k in b){const x=a?a[k]:undefined,y=b[k];o[k]=(y&&typeof y==='object'&&!Array.isArray(y)&&x&&typeof x==='object'&&!Array.isArray(x))?deepMerge(x,y):y}return o};
+function makeDb(sb){
+  const cache={},subs={};
+  const emit=c=>{const docs=Object.keys(cache[c]||{}).sort().map(id=>({id,data:()=>cache[c][id]}));(subs[c]||[]).forEach(f=>f({docs,metadata:{fromCache:false}}))};
+  const chk=r=>{if(r.error)throw r.error;return r};
+  const docRef=(c,id)=>({id,
+    set(data){(cache[c]=cache[c]||{})[id]=data;emit(c);return sb.from('docs').upsert({col:c,id,data}).then(chk)},
+    update(patch){(cache[c]=cache[c]||{})[id]=deepMerge(cache[c][id]||{},patch);emit(c);return sb.rpc('merge_doc',{p_col:c,p_id:id,p_patch:patch}).then(chk)},
+    delete(){if(cache[c])delete cache[c][id];emit(c);return sb.from('docs').delete().eq('col',c).eq('id',id).then(chk)}});
+  const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  return {
+    doc(path){const [c,id]=path.split('/');return docRef(c,id)},
+    collection(c){return {doc:id=>docRef(c,id||newId()),add(data){const r=docRef(c,newId());return r.set(data).then(()=>r)},
+      onSnapshot(cb){(subs[c]=subs[c]||[]).push(cb)}}},
+    async start(onErr){
+      const r=await sb.from('docs').select('col,id,data');if(r.error)throw r.error;
+      r.data.forEach(x=>{(cache[x.col]=cache[x.col]||{})[x.id]=x.data});
+      Object.keys(subs).forEach(emit);
+      sb.channel('docs-live').on('postgres_changes',{event:'*',schema:'public',table:'docs'},p=>{
+        const x=p.eventType==='DELETE'?p.old:p.new;if(!x||!x.col)return;cache[x.col]=cache[x.col]||{};
+        if(p.eventType==='DELETE')delete cache[x.col][x.id];else cache[x.col][x.id]=x.data;emit(x.col)}).subscribe(st=>{if(st==='CHANNEL_ERROR'||st==='TIMED_OUT')onErr()});
+    }};
+}
+function showLogin(msg){loginOpen=true;
+  $('#overlay').innerHTML=`<form class="dlg" id="login-form" novalidate><h2>Seoul Kitchen leadership team</h2><p class="muted" style="margin:0;font-size:14px">${esc(msg||'Sign in with the email you were invited with.')}</p><div class="fld"><label for="lg-email">Email</label><input type="text" id="lg-email" autocomplete="email" inputmode="email"></div><div class="fld"><label for="lg-pass">Password</label><input type="password" id="lg-pass" autocomplete="current-password" style="border:1px solid var(--line);background:var(--card);border-radius:7px;padding:7px 10px"></div><div class="dlg-actions"><button type="button" class="btn ghost" data-act="login-link">Email me a sign-in link instead</button><span class="sp"></span><button class="btn primary" type="submit">Sign in</button></div></form>`;
+  $('#overlay').hidden=false;$('#lg-email').focus()}
+async function doLogin(link){const email=$('#lg-email').value.trim();if(!email)return toast('Enter your email.');
+  if(link){const r=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:location.origin+location.pathname}});
+    toast(r.error?'That email is not on the team list.':'Check your email for the sign-in link.');return}
+  const r=await sb.auth.signInWithPassword({email,password:$('#lg-pass').value});
+  if(r.error)toast('That email and password did not match.')}
+async function startData(){
+  if(db)return;loginOpen=false;$('#overlay').hidden=true;$('#overlay').innerHTML='';
+  db=makeDb(sb);canWrite=true;$('#signout-btn').hidden=false;
+  const fail=()=>setStatus('warn','Lost connection to saved data');
+  const ok=name=>{S.loaded.add(name);setStatus('ok','Saved for the whole team');schedule()};
+  COLS.forEach(c=>db.collection(c).onSnapshot(snap=>{S[c]=snap.docs.map(d=>Object.assign({id:d.id},d.data()));ok(c)}));
+  db.collection('config').onSnapshot(snap=>{
+    snap.docs.forEach(d=>{const v=d.data()||{};if(d.id==='people')S.people=Array.isArray(v.list)?v.list:[];if(d.id==='vto')S.vto=v;if(d.id==='meeting')S.meeting=v});ok('config')});
+  renderShell();
+  try{await db.start(fail);S.loaded.add('ready');ready=true;setStatus('ok','Saved for the whole team');schedule()}
+  catch(e){ready=true;setStatus('warn','Could not load the team data');renderBody()}
+}
+async function boot(){
+  canWrite=false;renderNav();renderShell();renderBody();
+  if(CFG.url.indexOf('YOUR_')===0||!window.supabase){ready=true;setStatus('warn','Database not connected yet');renderBody();return}
+  sb=window.supabase.createClient(CFG.url,CFG.key);
+  sb.auth.onAuthStateChange((ev,session)=>{if(session&&!db)startData();if(ev==='SIGNED_OUT')location.reload()});
+  const r=await sb.auth.getSession();
+  if(r.data&&r.data.session)startData();else showLogin();
+}
+const byId=(c,id)=>S[c].find(x=>x.id===id);
+const person=id=>S.people.find(p=>p.id===id);
+const agenda=()=>(S.meeting&&Array.isArray(S.meeting.sections)&&S.meeting.sections.length)?S.meeting:DEFAULT_AGENDA;
+
+/* ---------- small renderers ---------- */
+const AVC=['#2f3f9e','#17754c','#a2463c','#8a5a00','#6b3fa0','#0f6f86','#96406f'];
+function initials(n){return String(n||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('')}
+function avatar(id){const p=person(id);if(!p)return '<span class="av" style="background:var(--muted)" title="Unassigned">–</span>';
+  let h=0;for(const ch of p.id)h=(h*31+ch.charCodeAt(0))%997;return `<span class="av" style="background:${AVC[h%AVC.length]}" title="${esc(p.name)}">${esc(initials(p.name))}</span>`}
+function who(id){const p=person(id);return `<span class="who">${avatar(id)}${esc(p?p.name:'Unassigned')}</span>`}
+function ownerOptions(sel,allLabel){return (allLabel!==undefined?`<option value="">${esc(allLabel)}</option>`:'')+S.people.map(p=>`<option value="${esc(p.id)}"${p.id===sel?' selected':''}>${esc(p.name)}</option>`).join('')}
+function ownerFilter(){return `<select id="flt-owner" aria-label="Filter by owner">${ownerOptions(F.owner,'Everyone')}</select>`}
+const mine=x=>!F.owner||x.owner===F.owner;
+function fmtVal(v,fmt){if(typeof v!=='number'||Number.isNaN(v))return '';
+  if(fmt==='$')return '$'+v.toLocaleString('en-US',{minimumFractionDigits:Number.isInteger(v)?0:2,maximumFractionDigits:2});
+  if(fmt==='%')return v.toLocaleString('en-US',{maximumFractionDigits:2})+'%';
+  return v.toLocaleString('en-US',{maximumFractionDigits:2})}
+function onTarget(m,v){if(typeof v!=='number'||typeof m.goal!=='number')return null;return m.op==='<='?v<=m.goal:v>=m.goal}
+function goalText(m){return typeof m.goal==='number'?(m.op==='<='?'≤ ':'≥ ')+fmtVal(m.goal,m.fmt):''}
+
+/* ---------- periods ---------- */
+function periods(freq,offset,n){n=n||13;const now=new Date(),out=[];
+  if(freq==='weekly'){const m0=addDays(mondayOf(now),-7*offset);
+    for(let i=0;i<n;i++){const s=addDays(m0,-7*i),e=addDays(s,6);out.push({key:iso(s),top:MON[s.getMonth()]+' '+s.getDate(),sub:'to '+MON[e.getMonth()]+' '+e.getDate(),cur:offset===0&&i===0})}}
+  else if(freq==='monthly'){let y=now.getFullYear(),m=now.getMonth()-offset;
+    for(let i=0;i<n;i++){const d=new Date(y,m-i,1);out.push({key:d.getFullYear()+'-'+pad(d.getMonth()+1),top:MON[d.getMonth()],sub:String(d.getFullYear()),cur:offset===0&&i===0})}}
+  else{let q=now.getFullYear()*4+Math.floor(now.getMonth()/3)-offset;
+    for(let i=0;i<n;i++){const k=q-i,y=Math.floor(k/4),qq=k%4+1;out.push({key:y+'-Q'+qq,top:'Q'+qq,sub:String(y),cur:offset===0&&i===0})}}
+  return out}
+function spark(m,keys){const pts=keys.slice().reverse().map(k=>m.values?m.values[k]:null).map(v=>typeof v==='number'?v:null);
+  const vals=pts.filter(v=>v!==null);if(vals.length<2)return '';
+  const g=typeof m.goal==='number'?m.goal:null;let lo=Math.min(...vals,g===null?Infinity:g),hi=Math.max(...vals,g===null?-Infinity:g);if(hi===lo){hi+=1;lo-=1}
+  const W=84,H=24,p=3,x=i=>p+i*(W-2*p)/(pts.length-1),y=v=>H-p-(v-lo)/(hi-lo)*(H-2*p);
+  let d='',last=null;pts.forEach((v,i)=>{if(v===null)return;d+=(d?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1);last=[x(i),y(v),v]});
+  const ok=onTarget(m,last[2]);
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Trend">${g!==null?`<line x1="0" x2="${W}" y1="${y(g).toFixed(1)}" y2="${y(g).toFixed(1)}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 3" opacity=".6"/>`:''}<path d="${d}" fill="none" stroke="var(--ink)" stroke-width="1.4" opacity=".7"/><circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.6" fill="${ok===null?'var(--muted)':ok?'var(--good)':'var(--bad)'}"/></svg>`}
+
+/* ---------- shell + nav ---------- */
+function renderNav(){
+  const counts={todos:S.todos.filter(t=>!t.done).length,issues:S.issues.filter(i=>!i.solved&&i.term!=='long').length,rocks:S.rocks.filter(r=>!r.archived).length};
+  $('#nav').innerHTML=VIEWS.map(([k,n])=>`<button data-act="nav" data-v="${k}"${k===view?' aria-current="page"':''}><span>${n}</span>${counts[k]?`<span class="ct">${counts[k]}</span>`:''}</button>`).join('');
+}
+function head(title,right){return `<div class="head"><h1>${esc(title)}</h1><span class="sp"></span>${right||''}</div>`}
+const addBtn=(act,label)=>canWrite?`<button class="btn primary" data-act="${act}">${label}</button>`:'';
+function renderShell(){
+  const sh=$('#shell');let h='';
+  if(view==='overview')h=head('This week at Seoul Kitchen');
+  else if(view==='scorecard'){
+    const groups=[...new Set(S.measurables.filter(m=>m.freq===F.freq).map(m=>m.group||'Other'))].sort(groupSort);
+    h=head('Scorecard',addBtn('add-measurable','Add measurable'))+`<div class="bar">
+      <div class="seg">${['weekly','monthly','quarterly'].map(f=>`<button data-act="sc-freq" data-f="${f}" aria-pressed="${F.freq===f}">${f[0].toUpperCase()+f.slice(1)}</button>`).join('')}</div>
+      <div class="seg"><button data-act="sc-group" data-g="" aria-pressed="${!F.group}">All</button>${groups.map(g=>`<button data-act="sc-group" data-g="${esc(g)}" aria-pressed="${F.group===g}">${esc(GROUP_NAMES[g]||g)}</button>`).join('')}</div>
+      ${ownerFilter()}<span class="sp"></span>
+      <button class="btn" data-act="sc-older">Older</button><button class="btn" data-act="sc-newer"${F.offset[F.freq]===0?' disabled':''}>Newer</button></div>`;
+  }
+  else if(view==='rocks')h=head('Rocks',addBtn('add-rock','Add rock'))+`<div class="bar">${ownerFilter()}</div>`;
+  else if(view==='todos')h=head('To-dos')+(canWrite?`<form class="quick" data-form="todo"><input type="text" id="q-todo" placeholder="Add a to-do and press Enter" autocomplete="off"><select id="q-todo-owner" aria-label="Owner">${ownerOptions(F.owner,'Unassigned')}</select><input type="date" id="q-todo-due" aria-label="Due date" value="${iso(addDays(new Date(),7))}"><button class="btn primary">Add</button></form>`:'')+`<div class="bar">${ownerFilter()}</div>`;
+  else if(view==='issues')h=head('Issues')+(canWrite?`<form class="quick" data-form="issue"><input type="text" id="q-issue" placeholder="Add an issue and press Enter" autocomplete="off"><select id="q-issue-owner" aria-label="Owner">${ownerOptions('','Unassigned')}</select><button class="btn primary">Add</button></form>`:'')+`<div class="bar"><div class="seg"><button data-act="issue-term" data-t="short" aria-pressed="${F.term==='short'}">Short term</button><button data-act="issue-term" data-t="long" aria-pressed="${F.term==='long'}">Long term</button></div>${ownerFilter()}</div>`;
+  else if(view==='headlines')h=head('Headlines')+(canWrite?`<form class="quick" data-form="headline"><input type="text" id="q-headline" placeholder="Share a headline: guest or team news" autocomplete="off"><select id="q-headline-owner" aria-label="From">${ownerOptions(F.owner,'Unassigned')}</select><button class="btn primary">Add</button></form>`:'');
+  else if(view==='meeting')h=head('Weekly meeting');
+  else if(view==='vision')h=head('Vision',canWrite?(F.vtoEdit?'<button class="btn ghost" data-act="vto-cancel">Cancel</button><button class="btn primary" data-act="vto-save">Save vision</button>':'<button class="btn" data-act="vto-edit">Edit</button>'):'');
+  else if(view==='chart')h=head('Accountability chart',addBtn('add-seat','Add seat'));
+  sh.innerHTML=h;
+  $('#team-btn').hidden=!canWrite;
+}
+const GO=['SK','SKL','SKW'];
+function groupSort(a,b){const ia=GO.indexOf(a),ib=GO.indexOf(b);return (ia<0?9:ia)-(ib<0?9:ib)||a.localeCompare(b)}
+
+/* ---------- bodies ---------- */
+let pending=false,raf=0;
+function sig(){return JSON.stringify([S.people,[...new Set(S.measurables.map(m=>m.freq+'/'+(m.group||'')))].sort(),canWrite])}
+function schedule(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;renderNav();const s=sig();if(s!==shellSig&&!$('#shell').contains(document.activeElement)){shellSig=s;renderShell()}renderBody()})}
+function renderBody(){
+  const b=$('#body'),a=document.activeElement;
+  if(a&&b.contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)){pending=true;return}
+  if(view==='vision'&&F.vtoEdit&&b.querySelector('[data-vto]')){pending=false;return}
+  pending=false;
+  const tw=b.querySelector('.tablewrap'),sl=tw?tw.scrollLeft:0;
+  b.innerHTML=bodyHTML(view);
+  const tw2=b.querySelector('.tablewrap');if(tw2&&sl)tw2.scrollLeft=sl;
+}
+function bodyHTML(v){
+  if(!S.loaded.size)return ready?'<div class="notice">The team data could not be loaded. Check your connection, then reload the page.</div>':'<div class="empty">Loading the team data…</div>';
+  return ({overview:ovHTML,scorecard:()=>scHTML(F.freq,F.group),rocks:rocksHTML,todos:todosHTML,issues:()=>issuesHTML(F.term),headlines:headlinesHTML,meeting:meetingHTML,vision:visionHTML,chart:chartHTML})[v]();
+}
+
+function scRows(freq,group){return S.measurables.filter(m=>m.freq===freq&&(F.showArch||!m.archived)&&(!group||(m.group||'Other')===group)&&mine(m))
+  .sort((a,b)=>groupSort(a.group||'Other',b.group||'Other')||(a.order||0)-(b.order||0)||String(a.title).localeCompare(String(b.title)))}
+function cellHTML(m,k,cur){const v=m.values?m.values[k]:null,ok=onTarget(m,v);
+  const cls='v'+(ok===true?' good':ok===false?' bad':'')+(cur?' cur':'');const txt=fmtVal(v,m.fmt);
+  return `<td class="${cls}">${canWrite?`<button data-act="cell" data-id="${esc(m.id)}" data-k="${k}" aria-label="${esc(m.title)} ${k}">${txt||'&nbsp;'}</button>`:`<span>${txt}</span>`}</td>`}
+function scHTML(freq,group){
+  const rows=scRows(freq,group),ps=periods(freq,F.offset[freq]);
+  if(!rows.length)return `<div class="card empty">No ${freq} measurables here yet.${canWrite?' Use Add measurable to create one.':''}</div>`;
+  let h='<div class="tablewrap"><table class="sc"><thead><tr><th class="t">Measurable</th><th>Goal</th><th>Trend</th>'+ps.map(p=>`<th class="${p.cur?'cur':''}">${p.top}<small>${p.sub}</small></th>`).join('')+'</tr></thead><tbody>';
+  let g=null;const keys=ps.map(p=>p.key);
+  rows.forEach(m=>{const mg=m.group||'Other';
+    if(!group&&mg!==g){g=mg;h+=`<tr class="grp"><td colspan="${ps.length+3}">${esc(GROUP_NAMES[mg]||mg)}</td></tr>`}
+    h+=`<tr class="${m.archived?'arch':''}"><td class="t">${canWrite?`<button data-act="edit-measurable" data-id="${esc(m.id)}" title="Edit">${avatar(m.owner)}<span>${esc(m.title)}</span></button>`:`<button disabled>${avatar(m.owner)}<span>${esc(m.title)}</span></button>`}</td><td class="g">${goalText(m)}</td><td class="tr">${spark(m,keys)}</td>${ps.map(p=>cellHTML(m,p.key,p.cur)).join('')}</tr>`});
+  h+='</tbody></table></div>';
+  const arch=S.measurables.filter(m=>m.freq===freq&&m.archived).length;
+  h+=`<p class="muted" style="font-size:13px;margin:10px 2px 0">${canWrite?'Click a cell to enter a number. Enter moves down the column. ':''}Green meets the goal, red misses it.${arch?` <button class="btn sm ghost" data-act="toggle-arch">${F.showArch?'Hide':'Show'} ${arch} archived</button>`:''}</p>`;
+  return h}
+
+const RS={on:['On track','good'],off:['Off track','bad'],done:['Done','plain']};
+function rockRow(r,showOwner){const st=RS[r.status]||RS.on;
+  return `<div class="row${r.status==='done'?' done':''}">${canWrite?`<button class="pill ${st[1]}" data-act="rock-status" data-id="${esc(r.id)}" title="Click to change status">${st[0]}</button>`:`<span class="pill ${st[1]}">${st[0]}</span>`}<button class="ttl" data-act="edit-rock" data-id="${esc(r.id)}"${canWrite?'':' disabled'}>${esc(r.title)}</button>${r.company&&showOwner===false?'<span class="pill plain">Company</span>':''}<span class="muted num" style="font-size:13px">${esc(niceDate(r.due))}</span>${showOwner!==false?who(r.owner):''}</div>`}
+function rocksHTML(){
+  const rocks=S.rocks.filter(r=>!r.archived&&mine(r)).sort((a,b)=>String(a.title).localeCompare(String(b.title)));
+  if(!rocks.length)return '<div class="card empty">No rocks for this quarter yet.</div>';
+  const comp=rocks.filter(r=>r.company);let h='<div class="stack">';
+  const tot=rocks.length,on=rocks.filter(r=>r.status!=='off').length;
+  h+=`<p class="muted" style="margin:0">${on} of ${tot} rocks on track or done.</p>`;
+  if(comp.length)h+=`<div class="card"><div class="sect-h"><h2>Company rocks</h2><span class="muted num">${comp.length}</span></div><div class="list">${comp.map(r=>rockRow(r)).join('')}</div></div>`;
+  const ids=[...new Set(rocks.map(r=>r.owner||''))].sort((a,b)=>String((person(a)||{}).name||'~').localeCompare(String((person(b)||{}).name||'~')));
+  ids.forEach(id=>{const rs=rocks.filter(r=>(r.owner||'')===id);h+=`<div class="card"><div class="sect-h">${who(id)}<span class="muted num">${rs.length}</span></div><div class="list">${rs.map(r=>rockRow(r,false)).join('')}</div></div>`});
+  return h+'</div>'}
+
+function todoRow(t){const over=!t.done&&t.due&&t.due<todayIso();
+  return `<div class="row${t.done?' done':''}"><button class="chk${t.done?' on':''}" data-act="todo-toggle" data-id="${esc(t.id)}" aria-label="${t.done?'Mark not done':'Mark done'}"${canWrite?'':' disabled'}>${t.done?'✓':''}</button><button class="ttl" data-act="edit-todo" data-id="${esc(t.id)}"${canWrite?'':' disabled'}>${esc(t.title)}</button>${t.due?`<span class="pill ${over?'bad':'plain'} num">${over?'Overdue ':''}${esc(niceDate(t.due))}</span>`:''}${who(t.owner)}</div>`}
+function todosHTML(){
+  const open=S.todos.filter(t=>!t.done&&mine(t)).sort((a,b)=>String(a.due||'9').localeCompare(String(b.due||'9'))||String(a.title).localeCompare(String(b.title)));
+  const done=S.todos.filter(t=>t.done&&mine(t)).sort((a,b)=>String(b.doneAt||'').localeCompare(String(a.doneAt||'')));
+  let h='<div class="stack"><div class="card">'+(open.length?`<div class="list">${open.map(todoRow).join('')}</div>`:'<div class="empty">Nothing open. Nice work.</div>')+'</div>';
+  if(done.length)h+=`<div><button class="btn sm ghost" data-act="toggle-done">${F.showDone?'Hide':'Show'} ${done.length} completed</button></div>`+(F.showDone?`<div class="card"><div class="list">${done.slice(0,60).map(todoRow).join('')}</div></div>`:'');
+  return h+'</div>'}
+
+function issueRow(i){return `<div class="row${i.solved?' done':''}"><button class="star${i.top?' on':''}" data-act="issue-star" data-id="${esc(i.id)}" aria-label="${i.top?'Remove priority':'Mark as priority'}" title="Priority"${canWrite?'':' disabled'}>★</button><button class="ttl" data-act="edit-issue" data-id="${esc(i.id)}"${canWrite?'':' disabled'}>${esc(i.title)}</button>${who(i.owner)}${canWrite&&!i.solved?`<button class="btn sm" data-act="issue-todo" data-id="${esc(i.id)}">Make to-do</button><button class="btn sm" data-act="issue-solve" data-id="${esc(i.id)}">Solved</button>`:''}${canWrite&&i.solved?`<button class="btn sm" data-act="issue-solve" data-id="${esc(i.id)}">Reopen</button>`:''}</div>`}
+function issuesHTML(term){
+  const all=S.issues.filter(i=>(i.term==='long'?'long':'short')===term&&mine(i));
+  const open=all.filter(i=>!i.solved).sort((a,b)=>(b.top?1:0)-(a.top?1:0)||String(a.title).localeCompare(String(b.title)));
+  const done=all.filter(i=>i.solved).sort((a,b)=>String(b.solvedAt||'').localeCompare(String(a.solvedAt||'')));
+  let h='<div class="stack"><div class="card">'+(open.length?`<div class="list">${open.map(issueRow).join('')}</div>`:`<div class="empty">No open ${term}-term issues.</div>`)+'</div>';
+  if(done.length)h+=`<div><button class="btn sm ghost" data-act="toggle-done">${F.showDone?'Hide':'Show'} ${done.length} solved</button></div>`+(F.showDone?`<div class="card"><div class="list">${done.slice(0,60).map(issueRow).join('')}</div></div>`:'');
+  return h+'</div>'}
+
+function headlinesHTML(){
+  const hs=S.headlines.filter(x=>!x.archived).sort((a,b)=>String(b.created||'').localeCompare(String(a.created||'')));
+  if(!hs.length)return '<div class="card empty">No headlines this week.</div>';
+  return `<div class="card"><div class="list">${hs.map(x=>`<div class="row"><button class="ttl" data-act="edit-headline" data-id="${esc(x.id)}"${canWrite?'':' disabled'}>${esc(x.title)}</button>${who(x.owner)}${canWrite?`<button class="btn sm" data-act="headline-archive" data-id="${esc(x.id)}">Archive</button>`:''}</div>`).join('')}</div></div>`}
+
+function nextMeeting(){const a=agenda(),d=new Date();for(let i=0;i<7;i++){const x=addDays(d,i);if(x.getDay()===(a.day??1))return x}return d}
+function time12(t){const [h,m]=String(t||'12:00').split(':').map(Number);return ((h+11)%12+1)+':'+pad(m||0)+(h<12?' AM':' PM')}
+function ovHTML(){
+  if(!S.measurables.length&&!S.rocks.length&&!S.todos.length&&!S.issues.length)return '<div class="card empty">Nothing here yet. Add measurables, rocks, to-dos and issues from the sections on the left.</div>';
+  const wk=periods('weekly',1,1)[0],ms=S.measurables.filter(m=>m.freq==='weekly'&&!m.archived);
+  const scored=ms.map(m=>({m,v:m.values?m.values[wk.key]:null})).filter(x=>onTarget(x.m,x.v)!==null);
+  const hit=scored.filter(x=>onTarget(x.m,x.v)),miss=scored.filter(x=>!onTarget(x.m,x.v)).sort((a,b)=>groupSort(a.m.group||'',b.m.group||''));
+  const rocks=S.rocks.filter(r=>!r.archived),off=rocks.filter(r=>r.status==='off');
+  const open=S.todos.filter(t=>!t.done),over=open.filter(t=>t.due&&t.due<todayIso());
+  const iss=S.issues.filter(i=>!i.solved&&i.term!=='long'),nm=nextMeeting();
+  let h='<div class="stack"><div class="tiles">';
+  h+=`<button class="tile" data-act="nav" data-v="scorecard"><b>${scored.length?hit.length+' / '+scored.length:'–'}</b><span>measurables on goal, week of ${wk.top}</span></button>`;
+  h+=`<button class="tile" data-act="nav" data-v="rocks"><b>${rocks.length?(rocks.length-off.length)+' / '+rocks.length:'–'}</b><span>rocks on track</span></button>`;
+  h+=`<button class="tile" data-act="nav" data-v="todos"><b style="${over.length?'color:var(--bad)':''}">${over.length}</b><span>overdue to-dos of ${open.length} open</span></button>`;
+  h+=`<button class="tile" data-act="nav" data-v="issues"><b>${iss.length}</b><span>open issues</span></button>`;
+  h+=`<button class="tile" data-act="nav" data-v="meeting"><b>${MON[nm.getMonth()]} ${nm.getDate()}</b><span>next meeting, ${DOW[nm.getDay()]} ${time12(agenda().time)}</span></button>`;
+  h+='</div><div class="cols">';
+  h+=`<div class="card"><div class="sect-h"><h2>Missed last week</h2><span class="muted num">${miss.length}</span></div>${miss.length?`<div class="list">${miss.map(x=>`<div class="row">${avatar(x.m.owner)}<span class="ttl">${esc(x.m.title)}</span><span class="pill bad num">${fmtVal(x.v,x.m.fmt)}</span><span class="muted num" style="font-size:13px">${goalText(x.m)}</span></div>`).join('')}</div>`:`<div class="empty">${scored.length?'Every number hit its goal.':'No numbers entered for that week yet.'}</div>`}</div>`;
+  h+=`<div class="stack"><div class="card"><div class="sect-h"><h2>Overdue to-dos</h2><span class="muted num">${over.length}</span></div>${over.length?`<div class="list">${over.sort((a,b)=>a.due.localeCompare(b.due)).slice(0,12).map(todoRow).join('')}</div>`:'<div class="empty">None overdue.</div>'}</div>`;
+  if(off.length)h+=`<div class="card"><div class="sect-h"><h2>Rocks off track</h2></div><div class="list">${off.map(r=>rockRow(r)).join('')}</div></div>`;
+  return h+'</div></div></div>'}
+
+/* vision */
+const VTO=[
+  {t:'Core values',f:[['coreValues','','list']]},
+  {t:'Core focus',f:[['purpose','Purpose','text'],['niche','Niche','text']]},
+  {t:'Long-range target',f:[['target','Core target','text']]},
+  {t:'Marketing strategy',f:[['market','Target market','text'],['uniques','Three uniques','list'],['process','Proven process','text'],['guarantee','Guarantee','text']]},
+  {t:'3-year picture',f:[['date3','Future date','line'],['revenue3','Revenue','line'],['profit3','Profit','line'],['measurables3','Measurables','list'],['looks3','What does it look like?','list']]},
+  {t:'1-year plan',f:[['date1','Future date','line'],['revenue1','Revenue','line'],['profit1','Profit','line'],['measurables1','Measurables','list'],['goals1','Goals for the year','list']]},
+  {t:'This quarter',f:[['dateQ','Future date','line'],['revenueQ','Revenue','line'],['profitQ','Profit','line'],['measurablesQ','Measurables','list']]},
+  {t:'Long-term issues',f:[['_issues','','issues']]}];
+function vItem(s){const i=String(s).indexOf(': ');return i>0&&i<60?`<b>${esc(s.slice(0,i))}</b><br>${esc(s.slice(i+2))}`:esc(s)}
+function visionHTML(){const v=S.vto||{};
+  return '<div class="vgrid">'+VTO.map(sec=>`<div class="card vcard"><h2>${sec.t}</h2>${sec.f.map(([k,label,type])=>{
+    if(type==='issues'){const li=S.issues.filter(i=>i.term==='long'&&!i.solved);return `<div class="vf">${li.length?`<ul>${li.map(i=>`<li>${esc(i.title)}</li>`).join('')}</ul>`:'<p class="muted">None listed.</p>'}<p class="muted" style="font-size:13px;margin-top:8px">Managed in Issues, Long term.</p></div>`}
+    const val=v[k];
+    if(F.vtoEdit){const txt=type==='list'?(Array.isArray(val)?val:[]).join('\n'):(val||'');
+      return `<div class="vf"><label for="vto-${k}">${esc(label||sec.t)}${type==='list'?' (one per line)':''}</label>${type==='line'?`<input type="text" id="vto-${k}" data-vto="${k}" data-type="${type}" value="${esc(txt)}" style="width:100%">`:`<textarea id="vto-${k}" data-vto="${k}" data-type="${type}" rows="${type==='list'?Math.max(3,(Array.isArray(val)?val.length:0)+1):3}">${esc(txt)}</textarea>`}</div>`}
+    const empty='<p class="muted">Not set</p>';
+    return `<div class="vf">${label?`<label>${esc(label)}</label>`:''}${type==='list'?((Array.isArray(val)&&val.length)?`<ol>${val.map(x=>`<li>${vItem(x)}</li>`).join('')}</ol>`:empty):(val?`<p>${esc(val)}</p>`:empty)}</div>`}).join('')}</div>`).join('')+'</div>'}
+
+/* chart */
+function chartHTML(){
+  if(!S.seats.length)return '<div class="card empty">No seats yet.</div>';
+  const ids=new Set(S.seats.map(s=>s.id)),kids={};
+  S.seats.forEach(s=>{const p=s.parent&&ids.has(s.parent)?s.parent:'';(kids[p]=kids[p]||[]).push(s)});
+  Object.values(kids).forEach(a=>a.sort((x,y)=>(x.order||0)-(y.order||0)||String(x.title).localeCompare(String(y.title))));
+  const node=s=>{const ch=kids[s.id]||[],col=F.collapsed.has(s.id),p=person(s.person);
+    return `<div class="seatnode"><div class="card seat">${ch.length?`<button class="tg" data-act="seat-toggle" data-id="${esc(s.id)}" aria-label="${col?'Expand':'Collapse'}" title="${ch.length} below">${col?'+':'−'}</button>`:'<span style="width:24px;flex:none"></span>'}<div class="body"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>${esc(s.title)}</b>${p?who(s.person):(s.personName?`<span class="who">${esc(s.personName)}</span>`:'')}</div>${(s.roles||[]).length?`<ul>${s.roles.map(r=>`<li>${esc(r)}</li>`).join('')}</ul>`:''}</div>${canWrite?`<button class="btn sm ghost" data-act="edit-seat" data-id="${esc(s.id)}">Edit</button>`:''}</div>${ch.length&&!col?`<div class="kids">${ch.map(node).join('')}</div>`:''}</div>`};
+  return `<p class="muted" style="margin:0 0 12px">${S.seats.length} seats</p><div class="stack" style="gap:8px">${(kids['']||[]).map(node).join('')}</div>`}
+
+/* meeting */
+const mmss=s=>{s=Math.max(0,Math.floor(s));return Math.floor(s/60)+':'+pad(s%60)};
+function meetingHTML(){const a=agenda();
+  if(!M.active){const nm=nextMeeting(),tot=a.sections.reduce((n,s)=>n+(+s.min||0),0);
+    const past=S.meetings.slice().sort((x,y)=>String(y.date).localeCompare(String(x.date))).slice(0,20);
+    return `<div class="cols"><div class="card pad stack"><div><h3>Next meeting</h3><div class="clock" style="margin-top:6px">${DOW[nm.getDay()]}, ${MON[nm.getMonth()]} ${nm.getDate()}</div><p class="muted" style="margin:6px 0 0">${time12(a.time)} · ${tot} minutes</p></div>
+      <div class="list" style="border:1px solid var(--line);border-radius:8px">${a.sections.map(s=>`<div class="row"><span class="ttl">${esc(s.name)}</span><span class="muted num">${+s.min||0} min</span></div>`).join('')}</div>
+      <div class="bar"><button class="btn primary" data-act="mt-start">Start meeting</button>${canWrite?'<button class="btn" data-act="mt-agenda">Edit agenda</button>':''}</div>
+      <p class="muted" style="font-size:13px;margin:0">The timer runs on the screen of whoever starts the meeting. Everything the team changes during the meeting saves for everyone.</p></div>
+      <div class="card"><div class="sect-h"><h2>Past meetings</h2></div>${past.length?`<div class="list">${past.map(m=>`<div class="row"><span class="ttl">${esc(niceDate(m.date))}${m.notes?`<br><span class="muted" style="font-weight:400;font-size:13px">${esc(m.notes)}</span>`:''}</span><span class="muted num" style="font-size:13px">${m.minutes||0} min</span>${typeof m.avg==='number'?`<span class="pill ${m.avg>=8?'good':'warn'} num">${m.avg.toFixed(1)} / 10</span>`:''}</div>`).join('')}</div>`:'<div class="empty">Meetings you finish here are listed with their rating.</div>'}</div></div>`}
+  const sec=a.sections[M.idx]||a.sections[0];let inner='';
+  if(sec.key==='segue')inner='<div class="card pad"><p style="margin:0;max-width:65ch">Go around the table. Each person shares one personal best and one business best from the past week.</p></div>';
+  else if(sec.key==='scorecard')inner=scHTML('weekly','');
+  else if(sec.key==='rocks')inner=rocksHTML();
+  else if(sec.key==='headlines')inner=headlinesHTML()+'<p class="muted" style="font-size:13px">Add new headlines from the Headlines section.</p>';
+  else if(sec.key==='todos')inner=todosHTML();
+  else if(sec.key==='issues')inner='<p class="muted" style="margin:0 0 10px;max-width:65ch">Star the top three, then work them in order: identify the real issue, discuss, solve. Turn each solution into a to-do.</p>'+issuesHTML('short');
+  else if(sec.key==='conclude'){const open=S.todos.filter(t=>!t.done).length;
+    inner=`<div class="card pad stack"><p style="margin:0">Recap the ${open} open to-dos, agree on any messages to share with the team, then rate the meeting from 1 to 10.</p><div class="rate">${S.people.map(p=>`<label for="rt-${esc(p.id)}">${who(p.id)}<input type="number" min="1" max="10" id="rt-${esc(p.id)}" data-rate="${esc(p.id)}" value="${esc(M.ratings[p.id]??'')}"></label>`).join('')}</div><div class="fld"><label for="mt-notes">Notes and messages to share</label><textarea id="mt-notes">${esc(M.notes)}</textarea></div><div class="bar"><button class="btn primary" data-act="mt-end">End meeting and save</button></div></div>`}
+  else inner='<div class="card pad muted">Open discussion.</div>';
+  return `<div class="mt"><div class="card steps">${a.sections.map((s,i)=>`<button data-act="mt-go" data-i="${i}" class="${i===M.idx?'on':''}"><span>${esc(s.name)}</span><span class="num">${+s.min||0}m</span></button>`).join('')}</div>
+    <div class="stack"><div class="card pad"><div class="head"><div><h3>${esc(sec.name)}</h3><div class="clock" id="mt-clock" style="margin-top:6px">0:00</div><div class="muted num" style="font-size:13px;margin-top:4px">of ${+sec.min||0}:00 · meeting <span id="mt-total">0:00</span></div></div><span class="sp"></span><button class="btn ghost danger" data-act="mt-cancel">Leave without saving</button><button class="btn" data-act="mt-prev"${M.idx===0?' disabled':''}>Back</button><button class="btn primary" data-act="mt-next"${M.idx>=a.sections.length-1?' disabled':''}>Next section</button></div></div>${inner}</div></div>`}
+function tick(){if(!M.active)return;const c=$('#mt-clock');if(!c)return;const a=agenda(),sec=a.sections[M.idx]||{};
+  const s=(M.spent[M.idx]||0)+(Date.now()-M.secStart)/1000;c.textContent=mmss(s);c.classList.toggle('over',s>(+sec.min||0)*60);
+  const t=$('#mt-total');if(t)t.textContent=mmss((Date.now()-M.start)/1000)}
+setInterval(tick,1000);
+function mtGo(i){const n=agenda().sections.length;if(i<0||i>=n)return;M.spent[M.idx]=(M.spent[M.idx]||0)+(Date.now()-M.secStart)/1000;M.idx=i;M.secStart=Date.now();forceBody();tick()}
+
+/* ---------- dialog ---------- */
+let D=null;
+function fieldHTML(f,v){const id='f-'+f.k,val=v[f.k];
+  if(f.type==='check')return `<div class="fld chkf"><input type="checkbox" id="${id}"${val?' checked':''}><label for="${id}">${esc(f.label)}</label></div>`;
+  let c;
+  if(f.type==='select')c=`<select id="${id}">${f.options.map(([ov,ol])=>`<option value="${esc(ov)}"${String(val??'')===String(ov)?' selected':''}>${esc(ol)}</option>`).join('')}</select>`;
+  else if(f.type==='textarea'||f.type==='lines')c=`<textarea id="${id}" rows="${f.rows||4}">${esc(f.type==='lines'?(Array.isArray(val)?val:[]).join('\n'):(val??''))}</textarea>`;
+  else c=`<input type="${f.type==='date'?'date':'text'}" id="${id}" value="${esc(val??'')}"${f.type==='number'?' inputmode="decimal"':''}${f.list?` list="${id}-l"`:''} autocomplete="off">${f.list?`<datalist id="${id}-l">${f.list.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>`:''}`;
+  return `<div class="fld"><label for="${id}">${esc(f.label)}</label>${c}</div>`}
+function openDialog(o){D=o;D.armed=false;const v=o.values||{};
+  const body=o.html!==undefined?o.html:o.fields.map(f=>Array.isArray(f)?`<div class="two">${f.map(x=>fieldHTML(x,v)).join('')}</div>`:fieldHTML(f,v)).join('');
+  $('#overlay').innerHTML=`<form class="dlg" id="dlg-form" novalidate><h2>${esc(o.title)}</h2>${body}<div class="dlg-actions">${o.onDelete?'<button type="button" class="btn ghost danger" data-act="dlg-del">Delete</button>':''}<span class="sp"></span><button type="button" class="btn ghost" data-act="dlg-close">Cancel</button><button class="btn primary" type="submit">${esc(o.saveLabel||'Save')}</button></div></form>`;
+  $('#overlay').hidden=false;const first=$('#overlay input,#overlay textarea,#overlay select');if(first)first.focus()}
+function closeDialog(){D=null;$('#overlay').hidden=true;$('#overlay').innerHTML='';if(pending)renderBody()}
+function collect(fields){const out={};fields.flat().forEach(f=>{const el=$('#f-'+f.k);if(!el)return;
+  if(f.type==='check')out[f.k]=el.checked;
+  else if(f.type==='number'){const n=parseNum(el.value);out[f.k]=Number.isNaN(n)?null:n}
+  else if(f.type==='lines')out[f.k]=el.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  else out[f.k]=el.value.trim()});return out}
+const ownerField=(label)=>({k:'owner',label:label||'Owner',type:'select',options:[['','Unassigned']].concat(S.people.map(p=>[p.id,p.name]))});
+function save(col,id,data){if(!db)return;return write(id?db.doc(col+'/'+id).update(data):db.collection(col).add(data))}
+function del(col,id){return write(db.doc(col+'/'+id).delete())}
+
+function dlgMeasurable(m){const groups=[...new Set(['SK','SKL','SKW'].concat(S.measurables.map(x=>x.group).filter(Boolean)))];
+  openDialog({title:m?'Edit measurable':'Add measurable',values:m||{freq:F.freq,op:'>=',fmt:'n',group:F.group||'SKL',owner:F.owner},
+    fields:[{k:'title',label:'Title',type:'text'},[ownerField(),{k:'group',label:'Group (SK both, SKL, SKW)',type:'text',list:groups}],
+      [{k:'freq',label:'Tracked',type:'select',options:[['weekly','Weekly'],['monthly','Monthly'],['quarterly','Quarterly']]},{k:'fmt',label:'Shown as',type:'select',options:[['n','Number'],['$','Dollars'],['%','Percent']]}],
+      [{k:'op',label:'Goal is',type:'select',options:[['>=','At least (≥)'],['<=','At most (≤)']]},{k:'goal',label:'Goal',type:'number'}],
+      {k:'archived',label:'Archived (hidden from the scorecard)',type:'check'}],
+    onSave:v=>{if(!v.title)return toast('Give the measurable a title.'),false;if(!m){v.values={};v.order=0}save('measurables',m&&m.id,v)},
+    onDelete:m?()=>del('measurables',m.id):null})}
+function dlgRock(r){openDialog({title:r?'Edit rock':'Add rock',values:r||{status:'on',owner:F.owner,due:quarterEnd()},
+  fields:[{k:'title',label:'Rock',type:'text'},[ownerField(),{k:'due',label:'Due',type:'date'}],{k:'status',label:'Status',type:'select',options:[['on','On track'],['off','Off track'],['done','Done']]},{k:'company',label:'Company rock',type:'check'},{k:'notes',label:'Milestones and notes',type:'textarea'},{k:'archived',label:'Archived (move out of the current list)',type:'check'}],
+  onSave:v=>{if(!v.title)return toast('Describe the rock.'),false;save('rocks',r&&r.id,v)},onDelete:r?()=>del('rocks',r.id):null})}
+function quarterEnd(){const n=new Date(),q=Math.floor(n.getMonth()/3);return iso(new Date(n.getFullYear(),q*3+3,0))}
+function dlgTodo(t,pre){openDialog({title:t?'Edit to-do':'Add to-do',values:t||Object.assign({due:iso(addDays(new Date(),7)),owner:F.owner},pre||{}),
+  fields:[{k:'title',label:'To-do',type:'text'},[ownerField(),{k:'due',label:'Due',type:'date'}],{k:'notes',label:'Notes',type:'textarea'}],
+  onSave:v=>{if(!v.title)return toast('Describe the to-do.'),false;if(!t){v.done=false;v.created=todayIso()}save('todos',t&&t.id,v)},onDelete:t?()=>del('todos',t.id):null})}
+function dlgIssue(i){openDialog({title:i?'Edit issue':'Add issue',values:i||{term:F.term},
+  fields:[{k:'title',label:'Issue',type:'text'},[ownerField('Raised by'),{k:'term',label:'List',type:'select',options:[['short','Short term'],['long','Long term']]}],{k:'notes',label:'Notes',type:'textarea'}],
+  onSave:v=>{if(!v.title)return toast('Describe the issue.'),false;if(!i){v.solved=false;v.created=todayIso()}save('issues',i&&i.id,v)},onDelete:i?()=>del('issues',i.id):null})}
+function dlgHeadline(x){openDialog({title:'Edit headline',values:x,fields:[{k:'title',label:'Headline',type:'text'},ownerField('From')],
+  onSave:v=>{if(!v.title)return false;save('headlines',x.id,v)},onDelete:()=>del('headlines',x.id)})}
+function dlgSeat(s){const below=new Set();if(s){const walk=id=>S.seats.filter(x=>x.parent===id).forEach(x=>{below.add(x.id);walk(x.id)});walk(s.id);below.add(s.id)}
+  openDialog({title:s?'Edit seat':'Add seat',values:s||{order:0},
+  fields:[{k:'title',label:'Seat',type:'text'},[{k:'person',label:'Person',type:'select',options:[['','Open or see name below']].concat(S.people.map(p=>[p.id,p.name]))},{k:'personName',label:'Name if not on the team list',type:'text'}],
+    {k:'roles',label:'Roles (one per line)',type:'lines',rows:5},[{k:'parent',label:'Reports to',type:'select',options:[['','Top of the chart']].concat(S.seats.filter(x=>!below.has(x.id)).sort((a,b)=>String(a.title).localeCompare(String(b.title))).map(x=>[x.id,x.title+(x.store?' ('+x.store+')':'')]))},{k:'order',label:'Order among peers',type:'number'}]],
+  onSave:v=>{if(!v.title)return toast('Name the seat.'),false;v.order=v.order||0;save('seats',s&&s.id,v)},
+  onDelete:s?()=>{S.seats.filter(x=>x.parent===s.id).forEach(x=>write(db.doc('seats/'+x.id).update({parent:s.parent||''})));del('seats',s.id)}:null})}
+function dlgAgenda(){const a=agenda();openDialog({title:'Edit meeting agenda',values:{day:String(a.day??1),time:a.time||'12:00',lines:a.sections.map(s=>s.name+' | '+(+s.min||0))},
+  fields:[[{k:'day',label:'Day',type:'select',options:DOW.map((d,i)=>[String(i),d])},{k:'time',label:'Start time (24-hour, like 12:00)',type:'text'}],{k:'lines',label:'Sections, one per line: Name | minutes',type:'lines',rows:8}],
+  onSave:v=>{const known={};DEFAULT_AGENDA.sections.forEach(s=>known[s.name.toLowerCase()]=s.key);a.sections.forEach(s=>known[String(s.name).toLowerCase()]=s.key);
+    const sections=v.lines.map(l=>{const [n,m]=l.split('|').map(x=>x.trim());return {key:known[n.toLowerCase()]||'other',name:n,min:parseInt(m,10)||5}});
+    if(!sections.length)return toast('Keep at least one section.'),false;
+    write(db.doc('config/meeting').set({day:+v.day,time:/^\d{1,2}:\d{2}$/.test(v.time)?v.time:'12:00',sections}))}})}
+function dlgTeam(){const rows=S.people.map((p,i)=>`<div class="fld" style="display:flex;gap:8px"><input type="text" id="tm-${i}" data-pid="${esc(p.id)}" value="${esc(p.name)}" aria-label="Name"></div>`).join('');
+  openDialog({title:'Leadership team',html:`<p class="muted" style="margin:0;font-size:14px">These names are the owners you can pick for numbers, rocks, to-dos and issues. Clear a name to remove that person.</p>${rows}<div class="fld"><label for="tm-new">Add people (one per line)</label><textarea id="tm-new" rows="3"></textarea></div>`,fields:[],
+  onSave:()=>{const list=[];document.querySelectorAll('#overlay [data-pid]').forEach(el=>{const n=el.value.trim();if(n)list.push({id:el.dataset.pid,name:n})});
+    $('#tm-new').value.split('\n').map(s=>s.trim()).filter(Boolean).forEach(n=>list.push({id:'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),name:n}));
+    write(db.doc('config/people').set({list}))}})}
+
+/* ---------- events ---------- */
+function go(v){if(!VIEWS.some(x=>x[0]===v))v='overview';view=v;F.showDone=false;renderNav();renderShell();forceBody();$('#main').scrollTop=0;try{if(location.hash.slice(1)!==v)location.hash=v}catch(e){}}
+function forceBody(){pending=false;const a=document.activeElement;if(a&&$('#body').contains(a))a.blur();const b=$('#body');b.innerHTML='';renderBody()}
+function editCell(btn){const m=byId('measurables',btn.dataset.id);if(!m)return;const k=btn.dataset.k,old=m.values&&typeof m.values[k]==='number'?m.values[k]:null;
+  const td=btn.parentElement,inp=document.createElement('input');inp.className='cell-in';inp.id='cell-edit';inp.inputMode='decimal';inp.setAttribute('aria-label',m.title+' '+k);inp.value=old===null?'':String(old);
+  btn.replaceWith(inp);inp.focus();inp.select();let done=false;
+  const finish=(keep,move)=>{if(done)return;done=true;let nv=old;
+    if(keep){const t=inp.value.trim();if(t==='')nv=null;else{const n=parseNum(t);if(!Number.isNaN(n))nv=n}
+      if(nv!==old)write(db.doc('measurables/'+m.id).update({values:{[k]:nv}}))}
+    const tmp=document.createElement('tbody');tmp.innerHTML='<tr>'+cellHTML(Object.assign({},m,{values:Object.assign({},m.values,{[k]:nv})}),k,td.classList.contains('cur'))+'</tr>';
+    const ntd=tmp.querySelector('td');td.replaceWith(ntd);
+    if(move){let tr=ntd.parentElement;do{tr=move>0?tr.nextElementSibling:tr.previousElementSibling}while(tr&&tr.classList.contains('grp'));
+      const nb=tr&&tr.querySelector(`button[data-act="cell"][data-k="${k}"]`);if(nb){editCell(nb);return}}
+    if(pending)setTimeout(renderBody,0)};
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();finish(true,e.shiftKey?-1:1)}else if(e.key==='Escape'){e.preventDefault();finish(false,0)}});
+  inp.addEventListener('blur',()=>finish(true,0))}
+const ACT={
+  nav:el=>go(el.dataset.v),team:dlgTeam,signout:()=>sb&&sb.auth.signOut(),'login-link':()=>doLogin(true),
+  'sc-freq':el=>{F.freq=el.dataset.f;F.group='';renderShell();forceBody()},
+  'sc-group':el=>{F.group=el.dataset.g;ls.set('group',F.group);renderShell();forceBody()},
+  'sc-older':()=>{F.offset[F.freq]+=F.freq==='weekly'?12:6;renderShell();forceBody()},
+  'sc-newer':()=>{F.offset[F.freq]=Math.max(0,F.offset[F.freq]-(F.freq==='weekly'?12:6));renderShell();forceBody()},
+  'toggle-arch':()=>{F.showArch=!F.showArch;forceBody()},'toggle-done':()=>{F.showDone=!F.showDone;forceBody()},
+  cell:editCell,'add-measurable':()=>dlgMeasurable(null),'edit-measurable':el=>dlgMeasurable(byId('measurables',el.dataset.id)),
+  'add-rock':()=>dlgRock(null),'edit-rock':el=>dlgRock(byId('rocks',el.dataset.id)),
+  'rock-status':el=>{const r=byId('rocks',el.dataset.id);if(!r)return;const nx={on:'off',off:'done',done:'on'}[r.status]||'off';save('rocks',r.id,{status:nx})},
+  'todo-toggle':el=>{const t=byId('todos',el.dataset.id);if(t)save('todos',t.id,{done:!t.done,doneAt:t.done?'':todayIso()})},
+  'edit-todo':el=>dlgTodo(byId('todos',el.dataset.id)),
+  'issue-term':el=>{F.term=el.dataset.t;F.showDone=false;renderShell();forceBody()},
+  'issue-star':el=>{const i=byId('issues',el.dataset.id);if(i)save('issues',i.id,{top:!i.top})},
+  'issue-solve':el=>{const i=byId('issues',el.dataset.id);if(i)save('issues',i.id,{solved:!i.solved,solvedAt:i.solved?'':todayIso(),top:false})},
+  'issue-todo':el=>{const i=byId('issues',el.dataset.id);if(i)dlgTodo(null,{title:i.title,owner:i.owner||F.owner})},
+  'edit-issue':el=>dlgIssue(byId('issues',el.dataset.id)),
+  'edit-headline':el=>dlgHeadline(byId('headlines',el.dataset.id)),'headline-archive':el=>save('headlines',el.dataset.id,{archived:true}),
+  'add-seat':()=>dlgSeat(null),'edit-seat':el=>dlgSeat(byId('seats',el.dataset.id)),
+  'seat-toggle':el=>{const id=el.dataset.id;F.collapsed.has(id)?F.collapsed.delete(id):F.collapsed.add(id);ls.set('collapsed',[...F.collapsed]);forceBody()},
+  'vto-edit':()=>{F.vtoEdit=true;renderShell();forceBody()},'vto-cancel':()=>{F.vtoEdit=false;renderShell();forceBody()},
+  'vto-save':()=>{const out=Object.assign({},S.vto);document.querySelectorAll('[data-vto]').forEach(el=>{out[el.dataset.vto]=el.dataset.type==='list'?el.value.split('\n').map(s=>s.trim()).filter(Boolean):el.value.trim()});
+    write(db.doc('config/vto').set(out));S.vto=out;F.vtoEdit=false;renderShell();forceBody()},
+  'mt-start':()=>{M.active=true;M.idx=0;M.start=M.secStart=Date.now();M.spent={};M.ratings={};M.notes='';forceBody();tick()},
+  'mt-next':()=>mtGo(M.idx+1),'mt-prev':()=>mtGo(M.idx-1),'mt-go':el=>mtGo(+el.dataset.i),
+  'mt-cancel':el=>{if(el.dataset.armed){M.active=false;forceBody()}else{el.dataset.armed='1';el.textContent='Click again to leave'}},
+  'mt-agenda':dlgAgenda,
+  'mt-end':()=>{const rs={};Object.entries(M.ratings).forEach(([k,v])=>{const n=parseFloat(v);if(n>=1&&n<=10)rs[k]=n});const vals=Object.values(rs);
+    const rec={date:todayIso(),minutes:Math.round((Date.now()-M.start)/60000),ratings:rs,notes:M.notes.trim(),openTodos:S.todos.filter(t=>!t.done).length};
+    if(vals.length)rec.avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10;
+    if(canWrite&&db)write(db.collection('meetings').add(rec));M.active=false;forceBody();toast('Meeting saved.')},
+  'dlg-close':closeDialog,
+  'dlg-del':el=>{if(!D||!D.onDelete)return;if(!D.armed){D.armed=true;el.textContent='Click again to delete';return}D.onDelete();closeDialog()},
+};
+document.addEventListener('click',e=>{
+  if(e.target.id==='overlay'){if(!loginOpen)closeDialog();return}
+  const el=e.target.closest('[data-act]');if(!el||el.disabled)return;const fn=ACT[el.dataset.act];if(fn)fn(el)});
+document.addEventListener('submit',e=>{e.preventDefault();const f=e.target;
+  if(f.id==='login-form'){doLogin(false);return}
+  if(f.id==='dlg-form'&&D){const v=D.fields?collect(D.fields):{};if(D.onSave(v)!==false)closeDialog();return}
+  const kind=f.dataset.form;if(!kind||!db)return;const inp=$('#q-'+kind),title=inp.value.trim();if(!title)return;const owner=$('#q-'+kind+'-owner').value;
+  if(kind==='todo')save('todos',null,{title,owner,due:$('#q-todo-due').value||'',done:false,created:todayIso()});
+  if(kind==='issue')save('issues',null,{title,owner,term:F.term,solved:false,created:todayIso()});
+  if(kind==='headline')save('headlines',null,{title,owner,archived:false,created:new Date().toISOString()});
+  inp.value='';inp.focus()});
+document.addEventListener('change',e=>{if(e.target.id==='flt-owner'){F.owner=e.target.value;ls.set('owner',F.owner);forceBody()}});
+document.addEventListener('input',e=>{const t=e.target;if(t.dataset&&t.dataset.rate)M.ratings[t.dataset.rate]=t.value;if(t.id==='mt-notes')M.notes=t.value});
+document.addEventListener('focusout',e=>{if(pending&&$('#body').contains(e.target))setTimeout(()=>{if(pending)renderBody()},0)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&D)closeDialog()});
+window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(v&&v!==view)go(v)});
+(function(){const v=(location.hash||'').slice(1);if(VIEWS.some(x=>x[0]===v))view=v})();
+boot();
+</script>
+</body>
+</html>
