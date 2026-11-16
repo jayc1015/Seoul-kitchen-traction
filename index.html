@@ -239,7 +239,7 @@ const CFG={url:'https://fjgjpiwgarpbdtghmqms.supabase.co',key:'sb_publishable_YI
 let sb=null,loginOpen=false,cameByInvite=/type=(invite|recovery)/.test(location.hash);
 function dlgPassword(){openDialog({title:'Set your password',saveLabel:'Save password',fields:[],html:'<p class="muted" style="margin:0;font-size:14px">Choose a password of at least 8 characters. After this you can sign in with your email and password on any device.</p><div class="fld"><label for="pw-1">New password</label><input type="password" id="pw-1" autocomplete="new-password"></div><div class="fld"><label for="pw-2">Repeat it</label><input type="password" id="pw-2" autocomplete="new-password"></div>',
   onSave:()=>{const a=$('#pw-1').value,b=$('#pw-2').value;if(a.length<8){toast('Use at least 8 characters.');return false}if(a!==b){toast('The two passwords do not match.');return false}
-    sb.auth.updateUser({password:a}).then(r=>toast(r.error?'The password was not saved: '+r.error.message:'Password saved. Use it with your email to sign in anywhere.'))}})}
+    sb.auth.updateUser({password:a}).then(r=>{if(!r.error)sb.rpc('mark_claimed');toast(r.error?'The password was not saved: '+r.error.message:'Password saved. Use it with your email to sign in anywhere.')})}})}
 function setStatus(cls,text){const el=$('#status');el.className=cls;el.lastElementChild.textContent=text}
 function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>el.hidden=true,3800)}
 function write(p){
@@ -269,14 +269,22 @@ function makeDb(sb){
         if(p.eventType==='DELETE')delete cache[x.col][x.id];else cache[x.col][x.id]=x.data;emit(x.col)}).subscribe(st=>{if(st==='CHANNEL_ERROR'||st==='TIMED_OUT')onErr()});
     }};
 }
-function showLogin(msg){loginOpen=true;
-  $('#overlay').innerHTML=`<form class="dlg" id="login-form" novalidate><h2>Seoul Kitchen leadership team</h2><p class="muted" style="margin:0;font-size:14px">${esc(msg||'First time? Open the link in your invitation email, then set a password. After that, sign in here.')}</p><div class="fld"><label for="lg-email">Email</label><input type="text" id="lg-email" autocomplete="email" inputmode="email"></div><div class="fld"><label for="lg-pass">Password</label><input type="password" id="lg-pass" autocomplete="current-password" ></div><div class="dlg-actions"><button type="button" class="btn ghost" data-act="login-link">Email me a sign-in link instead</button><span class="sp"></span><button class="btn primary" type="submit">Sign in</button></div></form>`;
+let loginMode='in';
+function showLogin(mode){loginOpen=true;if(mode==='in'||mode==='first')loginMode=mode;const first=loginMode==='first';
+  $('#overlay').innerHTML=`<form class="dlg" id="login-form" novalidate><h2>Seoul Kitchen leadership team</h2><div class="seg" style="align-self:flex-start"><button type="button" data-act="login-mode" data-m="in" aria-pressed="${!first}">Sign in</button><button type="button" data-act="login-mode" data-m="first" aria-pressed="${first}">First time here</button></div><p class="muted" style="margin:0;font-size:14px">${first?'Enter the email Jay added for you and choose your own password. You only do this once.':'Enter your email and the password you chose. No password yet? Click First time here.'}</p><div class="fld"><label for="lg-email">Email</label><input type="text" id="lg-email" autocomplete="email" inputmode="email"></div><div class="fld"><label for="lg-pass">${first?'Choose a password (8 or more characters)':'Password'}</label><input type="password" id="lg-pass" autocomplete="${first?'new-password':'current-password'}"></div>${first?'<div class="fld"><label for="lg-pass2">Repeat the password</label><input type="password" id="lg-pass2" autocomplete="new-password"></div>':''}<div class="dlg-actions"><span class="sp"></span><button class="btn primary" type="submit">${first?'Create password and sign in':'Sign in'}</button></div></form>`;
   $('#overlay').hidden=false;$('#lg-email').focus()}
-async function doLogin(link){const email=$('#lg-email').value.trim();if(!email)return toast('Enter your email.');
-  if(link){const r=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:location.origin+location.pathname}});
-    toast(r.error?'That email is not on the team list.':'Check your email for the sign-in link.');return}
-  const r=await sb.auth.signInWithPassword({email,password:$('#lg-pass').value});
-  if(r.error)toast('That email and password did not match.')}
+async function doLogin(){const email=$('#lg-email').value.trim().toLowerCase(),pw=$('#lg-pass').value;if(!email)return toast('Enter your email.');
+  if(loginMode==='first'){
+    if(pw.length<8)return toast('Use at least 8 characters.');
+    if(pw!==$('#lg-pass2').value)return toast('The two passwords do not match.');
+    const c=await sb.rpc('claim_account',{p_email:email,p_password:pw});
+    if(c.error)return toast('Could not set the password. Try again in a moment.');
+    if(c.data==='unknown')return toast('That email is not on the team list. Ask Jay to add you.');
+    if(c.data==='taken'){toast('A password is already set for this email. Sign in with it, or ask Jay to reset it.');showLogin('in');$('#lg-email').value=email;return}
+    if(c.data!=='ok')return toast('Use at least 8 characters.');
+  }
+  const r=await sb.auth.signInWithPassword({email,password:pw});
+  if(r.error)toast(loginMode==='first'?'Password saved, but sign-in did not go through. Click Sign in and enter it.':'That email and password did not match.')}
 async function startData(){
   if(db)return;loginOpen=false;$('#overlay').hidden=true;$('#overlay').innerHTML='';
   db=makeDb(sb);canWrite=true;$('#signout-btn').hidden=false;$('#setpw-btn').hidden=false;if(cameByInvite){cameByInvite=false;setTimeout(dlgPassword,400)}
@@ -596,7 +604,7 @@ function editCell(btn){const m=byId('measurables',btn.dataset.id);if(!m)return;c
   inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();finish(true,e.shiftKey?-1:1)}else if(e.key==='Escape'){e.preventDefault();finish(false,0)}});
   inp.addEventListener('blur',()=>finish(true,0))}
 const ACT={
-  nav:el=>go(el.dataset.v),team:dlgTeam,signout:()=>sb&&sb.auth.signOut(),setpw:dlgPassword,'login-link':()=>doLogin(true),
+  nav:el=>go(el.dataset.v),team:dlgTeam,signout:()=>sb&&sb.auth.signOut(),setpw:dlgPassword,'login-mode':el=>{const e=$('#lg-email').value;showLogin(el.dataset.m);$('#lg-email').value=e},
   'sc-freq':el=>{F.freq=el.dataset.f;F.group='';renderShell();forceBody()},
   'sc-group':el=>{F.group=el.dataset.g;ls.set('group',F.group);renderShell();forceBody()},
   'sc-older':()=>{F.offset[F.freq]+=F.freq==='weekly'?12:6;renderShell();forceBody()},
