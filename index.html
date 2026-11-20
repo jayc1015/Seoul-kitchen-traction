@@ -77,6 +77,8 @@ textarea{width:100%;resize:vertical;min-height:70px}
 .stack{display:flex;flex-direction:column;gap:16px}
 .muted{color:var(--muted)}
 .empty{padding:28px;text-align:center;color:var(--muted)}
+.livebar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:10px 14px;margin-bottom:14px}
+.livebar[hidden]{display:none}
 .notice{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:10px 14px;font-size:14px}
 
 .pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600;white-space:nowrap;border:0}
@@ -198,6 +200,7 @@ table.sc{border-collapse:separate;border-spacing:0;width:100%;font-variant-numer
   </div>
 </aside>
 <main id="main">
+  <div id="livebar" class="livebar" hidden></div>
   <div id="shell"></div>
   <div id="body"></div>
 </main>
@@ -231,7 +234,9 @@ const VIEWS=[['overview','Overview'],['scorecard','Scorecard'],['rocks','Rocks']
 const GROUP_NAMES={SK:'Both stores',SKL:'Leominster',SKW:'Westford'};
 let db=null,canWrite=true,view='overview',ready=false,shellSig='';
 const F={owner:ls.get('owner',''),freq:'weekly',group:ls.get('group',''),offset:{weekly:0,monthly:0,quarterly:0},showArch:false,showDone:false,term:'short',collapsed:new Set(ls.get('collapsed',[])),vtoEdit:false};
-const M={active:false,idx:0,start:0,secStart:0,spent:{},ratings:{},notes:''};
+const M={get l(){return (S.live&&S.live.active)?S.live:null},get active(){return !!this.l},get idx(){return this.l?(+this.l.idx||0):0},get start(){return this.l?this.l.start:0},get secStart(){return this.l?this.l.secStart:0},get spent(){return (this.l&&this.l.spent)||{}},get ratings(){return (this.l&&this.l.ratings)||{}},get notes(){return (this.l&&this.l.notes)||''}};
+let myEmail='';
+const setLive=patch=>db?write(db.doc('config/live').update(patch)):null;
 
 /* ---------- data ---------- */
 /* Connection: paste your Supabase project URL and anon (public) key here. */
@@ -264,9 +269,12 @@ function makeDb(sb){
       const r=await sb.from('docs').select('col,id,data');if(r.error)throw r.error;
       r.data.forEach(x=>{(cache[x.col]=cache[x.col]||{})[x.id]=x.data});
       Object.keys(subs).forEach(emit);
+      const refresh=async()=>{if(document.hidden)return;const q=await sb.from('docs').select('col,id,data');if(q.error)return;const next={};q.data.forEach(x=>{(next[x.col]=next[x.col]||{})[x.id]=x.data});
+        new Set(Object.keys(cache).concat(Object.keys(next))).forEach(c=>{if(JSON.stringify(cache[c]||{})!==JSON.stringify(next[c]||{})){cache[c]=next[c]||{};emit(c)}})};
+      let n=0,joined=false;setInterval(()=>{n++;if(n%(M.active?(joined?2:1):(joined?10:4))===0)refresh()},3000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
       sb.channel('docs-live').on('postgres_changes',{event:'*',schema:'public',table:'docs'},p=>{
         const x=p.eventType==='DELETE'?p.old:p.new;if(!x||!x.col)return;cache[x.col]=cache[x.col]||{};
-        if(p.eventType==='DELETE')delete cache[x.col][x.id];else cache[x.col][x.id]=x.data;emit(x.col)}).subscribe(st=>{if(st==='CHANNEL_ERROR'||st==='TIMED_OUT')onErr()});
+        if(p.eventType==='DELETE')delete cache[x.col][x.id];else cache[x.col][x.id]=x.data;emit(x.col)}).subscribe(st=>{joined=st==='SUBSCRIBED'});
     }};
 }
 let loginMode='in';
@@ -287,12 +295,12 @@ async function doLogin(){const email=$('#lg-email').value.trim().toLowerCase(),p
   if(r.error)toast(loginMode==='first'?'Password saved, but sign-in did not go through. Click Sign in and enter it.':'That email and password did not match.')}
 async function startData(){
   if(db)return;loginOpen=false;$('#overlay').hidden=true;$('#overlay').innerHTML='';
-  db=makeDb(sb);canWrite=true;$('#signout-btn').hidden=false;$('#setpw-btn').hidden=false;if(cameByInvite){cameByInvite=false;setTimeout(dlgPassword,400)}
+  db=makeDb(sb);canWrite=true;sb.auth.getSession().then(r=>{myEmail=(r.data&&r.data.session&&r.data.session.user.email)||''});$('#signout-btn').hidden=false;$('#setpw-btn').hidden=false;if(cameByInvite){cameByInvite=false;setTimeout(dlgPassword,400)}
   const fail=()=>setStatus('warn','Lost connection to saved data');
   const ok=name=>{S.loaded.add(name);setStatus('ok','Saved for the whole team');schedule()};
   COLS.forEach(c=>db.collection(c).onSnapshot(snap=>{S[c]=snap.docs.map(d=>Object.assign({id:d.id},d.data()));ok(c)}));
   db.collection('config').onSnapshot(snap=>{
-    snap.docs.forEach(d=>{const v=d.data()||{};if(d.id==='people')S.people=Array.isArray(v.list)?v.list:[];if(d.id==='vto')S.vto=v;if(d.id==='meeting')S.meeting=v});ok('config')});
+    snap.docs.forEach(d=>{const v=d.data()||{};if(d.id==='people')S.people=Array.isArray(v.list)?v.list:[];if(d.id==='vto')S.vto=v;if(d.id==='meeting')S.meeting=v;if(d.id==='live')S.live=v});ok('config')});
   renderShell();
   try{await db.start(fail);S.loaded.add('ready');ready=true;setStatus('ok','Saved for the whole team');schedule()}
   catch(e){ready=true;setStatus('warn','Could not load the team data');renderBody()}
@@ -376,7 +384,7 @@ function groupSort(a,b){const ia=GO.indexOf(a),ib=GO.indexOf(b);return (ia<0?9:i
 /* ---------- bodies ---------- */
 let pending=false,raf=0;
 function sig(){return JSON.stringify([S.people,[...new Set(S.measurables.map(m=>m.freq+'/'+(m.group||'')))].sort(),canWrite])}
-function schedule(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;renderNav();const s=sig();if(s!==shellSig&&!$('#shell').contains(document.activeElement)){shellSig=s;renderShell()}renderBody()})}
+function schedule(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;renderNav();renderLiveBar();const s=sig();if(s!==shellSig&&!$('#shell').contains(document.activeElement)){shellSig=s;renderShell()}renderBody()})}
 function renderBody(){
   const b=$('#body'),a=document.activeElement;
   if(a&&b.contains(a)&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)){pending=true;return}
@@ -506,7 +514,7 @@ function meetingHTML(){const a=agenda();
     return `<div class="cols"><div class="card pad stack"><div><h3>Next meeting</h3><div class="clock" style="margin-top:6px">${DOW[nm.getDay()]}, ${MON[nm.getMonth()]} ${nm.getDate()}</div><p class="muted" style="margin:6px 0 0">${time12(a.time)} · ${tot} minutes</p></div>
       <div class="list" style="border:1px solid var(--line);border-radius:8px">${a.sections.map(s=>`<div class="row"><span class="ttl">${esc(s.name)}</span><span class="muted num">${+s.min||0} min</span></div>`).join('')}</div>
       <div class="bar"><button class="btn primary" data-act="mt-start">Start meeting</button>${canWrite?'<button class="btn" data-act="mt-agenda">Edit agenda</button>':''}</div>
-      <p class="muted" style="font-size:13px;margin:0">The timer runs on the screen of whoever starts the meeting. Everything the team changes during the meeting saves for everyone.</p></div>
+      <p class="muted" style="font-size:13px;margin:0">Starting the meeting starts it for everyone. Teammates who are signed in see a Join meeting bar, and all of you share the same section, timer and ratings.</p></div>
       <div class="card"><div class="sect-h"><h2>Past meetings</h2></div>${past.length?`<div class="list">${past.map(m=>`<div class="row"><span class="ttl">${esc(niceDate(m.date))}${m.notes?`<br><span class="muted" style="font-weight:400;font-size:13px">${esc(m.notes)}</span>`:''}</span><span class="muted num" style="font-size:13px">${m.minutes||0} min</span>${typeof m.avg==='number'?`<span class="pill ${m.avg>=8?'good':'warn'} num">${m.avg.toFixed(1)} / 10</span>`:''}</div>`).join('')}</div>`:'<div class="empty">Meetings you finish here are listed with their rating.</div>'}</div></div>`}
   const sec=a.sections[M.idx]||a.sections[0];let inner='';
   if(sec.key==='segue')inner='<div class="card pad"><p style="margin:0;max-width:65ch">Go around the table. Each person shares one personal best and one business best from the past week.</p></div>';
@@ -519,12 +527,13 @@ function meetingHTML(){const a=agenda();
     inner=`<div class="card pad stack"><p style="margin:0">Recap the ${open} open to-dos, agree on any messages to share with the team, then rate the meeting from 1 to 10.</p><div class="rate">${S.people.map(p=>`<label for="rt-${esc(p.id)}">${who(p.id)}<input type="number" min="1" max="10" id="rt-${esc(p.id)}" data-rate="${esc(p.id)}" value="${esc(M.ratings[p.id]??'')}"></label>`).join('')}</div><div class="fld"><label for="mt-notes">Notes and messages to share</label><textarea id="mt-notes">${esc(M.notes)}</textarea></div><div class="bar"><button class="btn primary" data-act="mt-end">End meeting and save</button></div></div>`}
   else inner='<div class="card pad muted">Open discussion.</div>';
   return `<div class="mt"><div class="card steps">${a.sections.map((s,i)=>`<button data-act="mt-go" data-i="${i}" class="${i===M.idx?'on':''}"><span>${esc(s.name)}</span><span class="num">${+s.min||0}m</span></button>`).join('')}</div>
-    <div class="stack"><div class="card pad"><div class="head"><div><h3>${esc(sec.name)}</h3><div class="clock" id="mt-clock" style="margin-top:6px">0:00</div><div class="muted num" style="font-size:13px;margin-top:4px">of ${+sec.min||0}:00 · meeting <span id="mt-total">0:00</span></div></div><span class="sp"></span><button class="btn ghost danger" data-act="mt-cancel">Leave without saving</button><button class="btn" data-act="mt-prev"${M.idx===0?' disabled':''}>Back</button><button class="btn primary" data-act="mt-next"${M.idx>=a.sections.length-1?' disabled':''}>Next section</button></div></div>${inner}</div></div>`}
+    <div class="stack"><div class="card pad"><div class="head"><div><h3>${esc(sec.name)}</h3><div class="clock" id="mt-clock" style="margin-top:6px">0:00</div><div class="muted num" style="font-size:13px;margin-top:4px">of ${+sec.min||0}:00 · meeting <span id="mt-total">0:00</span></div><div class="muted" style="font-size:13px;margin-top:4px"><span class="pill good">Live</span> Shared with everyone signed in${M.l&&M.l.by?' · started by '+esc(M.l.by):''}</div></div><span class="sp"></span><button class="btn ghost danger" data-act="mt-cancel">End without saving</button><button class="btn" data-act="mt-prev"${M.idx===0?' disabled':''}>Back</button><button class="btn primary" data-act="mt-next"${M.idx>=a.sections.length-1?' disabled':''}>Next section</button></div></div>${inner}</div></div>`}
 function tick(){if(!M.active)return;const c=$('#mt-clock');if(!c)return;const a=agenda(),sec=a.sections[M.idx]||{};
   const s=(M.spent[M.idx]||0)+(Date.now()-M.secStart)/1000;c.textContent=mmss(s);c.classList.toggle('over',s>(+sec.min||0)*60);
   const t=$('#mt-total');if(t)t.textContent=mmss((Date.now()-M.start)/1000)}
 setInterval(tick,1000);
-function mtGo(i){const n=agenda().sections.length;if(i<0||i>=n)return;M.spent[M.idx]=(M.spent[M.idx]||0)+(Date.now()-M.secStart)/1000;M.idx=i;M.secStart=Date.now();forceBody();tick()}
+function mtGo(i){const n=agenda().sections.length;if(!M.active||i<0||i>=n||i===M.idx)return;const now=Date.now();setLive({idx:i,secStart:now,spent:{[M.idx]:(M.spent[M.idx]||0)+(now-M.secStart)/1000}})}
+function renderLiveBar(){const el=$('#livebar');if(!el)return;if(!M.active||view==='meeting'){el.hidden=true;return}el.hidden=false;el.innerHTML=`<span><b>Weekly meeting in progress</b> · ${esc((agenda().sections[M.idx]||{}).name||'')}</span><button class="btn primary sm" data-act="nav" data-v="meeting">Join meeting</button>`}
 
 /* ---------- dialog ---------- */
 let D=null;
@@ -588,7 +597,7 @@ function dlgTeam(){const rows=S.people.map((p,i)=>`<div class="fld" style="displ
     write(db.doc('config/people').set({list}))}})}
 
 /* ---------- events ---------- */
-function go(v){if(!VIEWS.some(x=>x[0]===v))v='overview';view=v;F.showDone=false;renderNav();renderShell();forceBody();$('#main').scrollTop=0;try{if(location.hash.slice(1)!==v)location.hash=v}catch(e){}}
+function go(v){if(!VIEWS.some(x=>x[0]===v))v='overview';view=v;F.showDone=false;renderNav();renderLiveBar();renderShell();forceBody();$('#main').scrollTop=0;try{if(location.hash.slice(1)!==v)location.hash=v}catch(e){}}
 function forceBody(){pending=false;const a=document.activeElement;if(a&&$('#body').contains(a))a.blur();const b=$('#body');b.innerHTML='';renderBody()}
 function editCell(btn){const m=byId('measurables',btn.dataset.id);if(!m)return;const k=btn.dataset.k,old=m.values&&typeof m.values[k]==='number'?m.values[k]:null;
   const td=btn.parentElement,inp=document.createElement('input');inp.className='cell-in';inp.id='cell-edit';inp.inputMode='decimal';inp.setAttribute('aria-label',m.title+' '+k);inp.value=old===null?'':String(old);
@@ -626,14 +635,14 @@ const ACT={
   'vto-edit':()=>{F.vtoEdit=true;renderShell();forceBody()},'vto-cancel':()=>{F.vtoEdit=false;renderShell();forceBody()},
   'vto-save':()=>{const out=Object.assign({},S.vto);document.querySelectorAll('[data-vto]').forEach(el=>{out[el.dataset.vto]=el.dataset.type==='list'?el.value.split('\n').map(s=>s.trim()).filter(Boolean):el.value.trim()});
     write(db.doc('config/vto').set(out));S.vto=out;F.vtoEdit=false;renderShell();forceBody()},
-  'mt-start':()=>{M.active=true;M.idx=0;M.start=M.secStart=Date.now();M.spent={};M.ratings={};M.notes='';forceBody();tick()},
+  'mt-start':()=>{if(M.active||!db)return;const now=Date.now();write(db.doc('config/live').set({active:true,idx:0,start:now,secStart:now,spent:{},ratings:{},notes:'',by:myEmail}))},
   'mt-next':()=>mtGo(M.idx+1),'mt-prev':()=>mtGo(M.idx-1),'mt-go':el=>mtGo(+el.dataset.i),
-  'mt-cancel':el=>{if(el.dataset.armed){M.active=false;forceBody()}else{el.dataset.armed='1';el.textContent='Click again to leave'}},
+  'mt-cancel':el=>{if(el.dataset.armed){write(db.doc('config/live').set({active:false}))}else{el.dataset.armed='1';el.textContent='Click again to end it for everyone'}},
   'mt-agenda':dlgAgenda,
   'mt-end':()=>{const rs={};Object.entries(M.ratings).forEach(([k,v])=>{const n=parseFloat(v);if(n>=1&&n<=10)rs[k]=n});const vals=Object.values(rs);
     const rec={date:todayIso(),minutes:Math.round((Date.now()-M.start)/60000),ratings:rs,notes:M.notes.trim(),openTodos:S.todos.filter(t=>!t.done).length};
     if(vals.length)rec.avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length*10)/10;
-    if(canWrite&&db)write(db.collection('meetings').add(rec));M.active=false;forceBody();toast('Meeting saved.')},
+    if(!M.active)return;if(canWrite&&db){write(db.collection('meetings').add(rec));write(db.doc('config/live').set({active:false}))}toast('Meeting saved.')},
   'dlg-close':closeDialog,
   'dlg-del':el=>{if(!D||!D.onDelete)return;if(!D.armed){D.armed=true;el.textContent='Click again to delete';return}D.onDelete();closeDialog()},
 };
@@ -649,7 +658,7 @@ document.addEventListener('submit',e=>{e.preventDefault();const f=e.target;
   if(kind==='headline')save('headlines',null,{title,owner,archived:false,created:new Date().toISOString()});
   inp.value='';inp.focus()});
 document.addEventListener('change',e=>{if(e.target.id==='flt-owner'){F.owner=e.target.value;ls.set('owner',F.owner);forceBody()}});
-document.addEventListener('input',e=>{const t=e.target;if(t.dataset&&t.dataset.rate)M.ratings[t.dataset.rate]=t.value;if(t.id==='mt-notes')M.notes=t.value});
+document.addEventListener('change',e=>{const t=e.target;if(!M.active)return;if(t.dataset&&t.dataset.rate)setLive({ratings:{[t.dataset.rate]:t.value}});if(t.id==='mt-notes')setLive({notes:t.value})});
 document.addEventListener('focusout',e=>{if(pending&&$('#body').contains(e.target))setTimeout(()=>{if(pending)renderBody()},0)});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&D)closeDialog()});
 window.addEventListener('hashchange',()=>{const v=location.hash.slice(1);if(v&&v!==view)go(v)});
