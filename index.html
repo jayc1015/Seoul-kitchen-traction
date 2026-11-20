@@ -107,6 +107,9 @@ table.sc{border-collapse:separate;border-spacing:0;width:100%;font-variant-numer
 .sc td.good{background:var(--good-bg);color:var(--good)} .sc td.bad{background:var(--bad-bg);color:var(--bad)}
 .sc td.v.cur:not(.good):not(.bad){background:var(--accent-soft)}
 .cell-in{width:100%;height:37px;border:2px solid var(--accent)!important;border-radius:0!important;text-align:right;padding:0 8px!important}
+.sc tr.hl td.t,.sc tr.hl td.g,.sc tr.hl td.tr{background:var(--warn-bg)}
+.sc tr.hl td.t{box-shadow:inset 4px 0 0 var(--warn)}
+.sc tr.hl td.t span{font-weight:600}
 .sc tr.arch .t span{text-decoration:line-through;color:var(--muted)}
 
 /* lists */
@@ -411,7 +414,7 @@ function scHTML(freq,group){
   let g=null;const keys=ps.map(p=>p.key);
   rows.forEach(m=>{const mg=m.group||'Other';
     if(!group&&mg!==g){g=mg;h+=`<tr class="grp"><td colspan="${ps.length+3}">${esc(GROUP_NAMES[mg]||mg)}</td></tr>`}
-    h+=`<tr class="${m.archived?'arch':''}"><td class="t">${canWrite?`<button data-act="edit-measurable" data-id="${esc(m.id)}" title="Edit">${avatar(m.owner)}<span>${esc(m.title)}</span></button>`:`<button disabled>${avatar(m.owner)}<span>${esc(m.title)}</span></button>`}</td><td class="g">${goalText(m)}</td><td class="tr">${spark(m,keys)}</td>${ps.map(p=>cellHTML(m,p.key,p.cur)).join('')}</tr>`});
+    h+=`<tr class="${m.archived?'arch':''}${m.highlight?' hl':''}"><td class="t">${canWrite?`<button data-act="edit-measurable" data-id="${esc(m.id)}" title="Edit">${avatar(m.owner)}<span>${esc(m.title)}</span></button>`:`<button disabled>${avatar(m.owner)}<span>${esc(m.title)}</span></button>`}</td><td class="g">${goalText(m)}</td><td class="tr">${spark(m,keys)}</td>${ps.map(p=>cellHTML(m,p.key,p.cur)).join('')}</tr>`});
   h+='</tbody></table></div>';
   const arch=S.measurables.filter(m=>m.freq===freq&&m.archived).length;
   h+=`<p class="muted" style="font-size:13px;margin:10px 2px 0">${canWrite?'Click a cell to enter a number. Enter moves down the column. ':''}Green meets the goal, red misses it.${arch?` <button class="btn sm ghost" data-act="toggle-arch">${F.showArch?'Hide':'Show'} ${arch} archived</button>`:''}</p>`;
@@ -563,7 +566,7 @@ function dlgMeasurable(m){const groups=[...new Set(['SK','SKL','SKW'].concat(S.m
     fields:[{k:'title',label:'Title',type:'text'},[ownerField(),{k:'group',label:'Group (SK both, SKL, SKW)',type:'text',list:groups}],
       [{k:'freq',label:'Tracked',type:'select',options:[['weekly','Weekly'],['monthly','Monthly'],['quarterly','Quarterly']]},{k:'fmt',label:'Shown as',type:'select',options:[['n','Number'],['$','Dollars'],['%','Percent']]}],
       [{k:'op',label:'Goal is',type:'select',options:[['>=','At least (≥)'],['<=','At most (≤)']]},{k:'goal',label:'Goal',type:'number'}],
-      {k:'archived',label:'Archived (hidden from the scorecard)',type:'check'}],
+      {k:'highlight',label:'Highlight this row on the scorecard',type:'check'},{k:'archived',label:'Archived (hidden from the scorecard)',type:'check'}],
     onSave:v=>{if(!v.title)return toast('Give the measurable a title.'),false;if(!m){v.values={};v.order=0}save('measurables',m&&m.id,v)},
     onDelete:m?()=>del('measurables',m.id):null})}
 function dlgRock(r){openDialog({title:r?'Edit rock':'Add rock',values:r||{status:'on',owner:F.owner,due:quarterEnd()},
